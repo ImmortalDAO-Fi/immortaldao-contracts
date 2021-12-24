@@ -874,19 +874,26 @@ contract ImmortalPresale is Ownable {
   address public treasury;
   address public stakingHelper;
 
+  // unnecessary, unused
   address public daiEightLP;
 
+  // why is this not a mcUSD uint with the decimals?
   uint256 public salePrice = 20; //20mcUSD per IMMO
   uint256 public totalWhiteListed;
   uint256 public totalIMMObought;
   uint256 public startOfSale = 1640174400;
+  // need to be constant
   uint256 public endOfSale = 1640253600;
+  // need to be constant
   uint256 public redeemTime = 1640260800;
+  // need to be constant
   uint256 public vestingPeriod = 1209600; //2 weeks
   uint256 public decimal_mcUSD = 10**IERC20(mcUSD).decimals();
   uint256 public decimal_IMMO = 10**IERC20(IMMO).decimals();
   uint256 public IMMOMinted;
+  // need to be constant
   uint256 public initialVested = 5000; //50%
+  // trasury allocation should be a percentage instead in case presale doesn't hit allocation
   uint256 public treasuryAllocation;
 
   bool public cancelled;
@@ -923,23 +930,31 @@ contract ImmortalPresale is Ownable {
     return startOfSale <= block.timestamp;
   }
 
+  // rename addToWhitelist / or whitelist
   function addWhitelist(address[] memory _buyers) external returns (bool) {
     require(whitelistAdder[msg.sender] == true, "not admin");
 
+    // this counter is going to be incorrect if the same buyer is repeated added by different admins
     totalWhiteListed = totalWhiteListed.add(_buyers.length);
 
     for (uint256 i = 0; i < _buyers.length; i++) {
+      // emit an event whenver a buyer is whitelisted
       whiteListed[_buyers[i]] = true;
     }
 
+    // no need to return anything
     return true;
   }
 
+  // whiteListed is already public, use the auto-generated getter func instead
   function isWhitelisted(address user) public view returns (bool) {
     return whiteListed[user];
   }
 
+  // this is toggling the admin, not making admin
   function makeAdmin(address _admin) external onlyOwner {
+    // need to emit event here to track admin changes
+    // rename variable to whitelistAdmins instead to be clear
     whitelistAdder[_admin] = !whitelistAdder[_admin];
   }
 
@@ -948,35 +963,48 @@ contract ImmortalPresale is Ownable {
     require(saleStarted() == true, "Not started");
     require(block.timestamp < endOfSale, "Sales has ended");
     require(hasBought[msg.sender] == false, "Already participated");
+
+    // amount really should be denominated directly in mcUSD and allow fractional buy-in of IMMO
     require(_amount >= 1, "At least 1 IMMO");
     require(_amount <= 25, "Max 25 IMMO");
 
+    // remember to tell everyone that they can ONLY buy into presale exactly ONCE
+    // better to check how much sender has purchased and allow repeat buys UP TO max limit
     hasBought[msg.sender] = true;
 
+    // why is totalWhiteListed needed when whitelisted already exist
     totalWhiteListed = totalWhiteListed.sub(1);
 
+    // need to instead just count the purchased amount and increment it to allow multiple buy-ins up to the limit
     purchasedAmounts[msg.sender] = _amount;
 
+    // log an event here
     totalIMMObought = totalIMMObought.add(_amount);
 
+    // use a event to track a purchase event instead
     buyers.push(msg.sender);
 
+    // really should just be safe transfering ONLY the input amount vs multiply by sale price and decimals
     IERC20(mcUSD).safeTransferFrom(
       msg.sender,
       address(this),
       _amount * salePrice * decimal_mcUSD
     );
 
+    // should actually return the amount of IMMO purchased instead
     return true;
   }
 
+  // this is a presale contract, do not take in _recipient, only message sender can claim for themself
   function claim(address _recipient, bool _stake) public {
     require(block.timestamp >= redeemTime);
     require(finalized, "only can claim after finalized");
     require(purchasedAmounts[_recipient] > 0, "not purchased");
+    // make 10,000 a constant
     uint256 amountAbleToRedeem = (
       percentAbleToRedeem().mul(purchasedAmounts[_recipient])
     ).div(10000);
+    // should be able to redeem for fractional IMMO, right now you can only redeem whole IMMO
     uint256 amountRedeemed = amountAbleToRedeem.sub(amountClaimed[_recipient]);
     stakeOrSend(_recipient, _stake, amountRedeemed * decimal_IMMO);
     amountClaimed[_recipient] = amountClaimed[_recipient].add(amountRedeemed);
@@ -989,12 +1017,15 @@ contract ImmortalPresale is Ownable {
   ) internal returns (uint256) {
     if (!_stake) {
       // if user does not want to stake
+      // Need to use safe transfer here
       IERC20(IMMO).transfer(_recipient, _amount); // send payout
     } else {
       // if user wants to stake
+      // need to check return value
       IERC20(IMMO).approve(stakingHelper, _amount);
       IStakingHelper(stakingHelper).stake(_amount, _recipient);
     }
+    // no need for return
     return _amount;
   }
 
@@ -1002,30 +1033,40 @@ contract ImmortalPresale is Ownable {
   function percentAbleToRedeem() public view returns (uint256 percentVested) {
     uint256 timePassed = block.timestamp.sub(redeemTime);
     if (timePassed >= vestingPeriod) {
+      // need to make 10,000 a constant
       percentVested = 10000;
     } else {
+      // use the initialVested variable
+      // substitute 5,000 with total - initialVested (10,000 - initialVested)
       percentVested = initialVested.add(
         (timePassed.mul(5000)).div(vestingPeriod)
       );
     }
   }
 
+  // withdraw need to check cancelled, if cancelled, should not allow withdraw
   function withdraw() external onlyOwner {
+    // treasury allocation should just be denominated in mcUSD directly, no decimal multiplications
     uint256 mcUSDInTreasury = treasuryAllocation * decimal_mcUSD;
 
+    // check return value
     IERC20(mcUSD).approve(treasury, mcUSDInTreasury);
     IMMOMinted = ITreasury(treasury).deposit(
       mcUSDInTreasury,
       mcUSD,
+      // ??? treasury allocation is denominated in whole dollar amount, this math is mixing the wrong units
       (treasuryAllocation - totalIMMObought) * decimal_IMMO
     );
 
     uint256 bal = IERC20(mcUSD).balanceOf(address(this));
+    // use safe transfer
     IERC20(mcUSD).transfer(msg.sender, bal);
 
+    // need to log event here
     finalized = true;
   }
 
+  // Should not have this ability, can be abused in rug
   function changeValue(
     address _IMMO,
     address _mcUSD,
@@ -1038,6 +1079,7 @@ contract ImmortalPresale is Ownable {
     require(_treasury != address(0));
     require(_stakingHelper != address(0));
 
+    // IMMO and mcUSD need to be final, if you mess this up, just scrap the contract
     IMMO = _IMMO;
     mcUSD = _mcUSD;
     treasury = _treasury;
@@ -1058,6 +1100,7 @@ contract ImmortalPresale is Ownable {
   function refund() external {
     require(cancelled, "Presale is not cancelled");
     uint256 amount = purchasedAmounts[msg.sender];
+    // use safe transfer
     IERC20(mcUSD).transfer(msg.sender, amount * salePrice * decimal_mcUSD);
   }
 }
