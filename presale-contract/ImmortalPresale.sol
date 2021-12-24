@@ -854,11 +854,6 @@ interface ITreasury {
     address _token,
     uint256 _profit
   ) external returns (uint256 send_);
-
-  function valueOfToken(address _token, uint256 _amount)
-    external
-    view
-    returns (uint256 value_);
 }
 
 interface IStakingHelper {
@@ -874,77 +869,60 @@ contract ImmortalPresale is Ownable {
   address public treasury;
   address public stakingHelper;
 
-  address public daiEightLP;
-
   uint256 public salePrice = 20; //20mcUSD per IMMO
   uint256 public totalWhiteListed;
   uint256 public totalIMMObought;
   uint256 public startOfSale = 1640174400;
-  uint256 public endOfSale = 1640253600;
-  uint256 public redeemTime = 1640260800;
+  uint256 public constant endOfSale = 1640253600;
+  uint256 public constant redeemTime = 1640260800;
   uint256 public vestingPeriod = 1209600; //2 weeks
   uint256 public decimal_mcUSD = 10**IERC20(mcUSD).decimals();
   uint256 public decimal_IMMO = 10**IERC20(IMMO).decimals();
   uint256 public IMMOMinted;
-  uint256 public initialVested = 5000; //50%
+  uint256 public constant initialVested = 5000; //50%
+  uint256 public constant completeVested = 10000;
   uint256 public treasuryAllocation;
 
   bool public cancelled;
   bool public finalized;
 
   mapping(address => bool) public hasBought;
-  mapping(address => bool) public whiteListed;
-  address[] buyers;
+  mapping(address => bool) public whitelisted;
+
   mapping(address => uint256) public purchasedAmounts;
   mapping(address => uint256) public amountClaimed;
 
-  mapping(address => bool) public whitelistAdder;
+  mapping(address => bool) public whitelistAdmin;
 
-  constructor(
-    address _IMMO,
-    address _mcUSD,
-    address _treasury,
-    address _stakingHelper,
-    uint256 _treasuryAllocation
-  ) {
+  constructor(address _IMMO, address _mcUSD) {
     require(_IMMO != address(0));
     require(_mcUSD != address(0));
-    require(_treasury != address(0));
-    require(_stakingHelper != address(0));
 
     IMMO = _IMMO;
     mcUSD = _mcUSD;
-    treasury = _treasury;
-    stakingHelper = _stakingHelper;
-    treasuryAllocation = _treasuryAllocation;
   }
 
   function saleStarted() public view returns (bool) {
     return startOfSale <= block.timestamp;
   }
 
-  function addWhitelist(address[] memory _buyers) external returns (bool) {
-    require(whitelistAdder[msg.sender] == true, "not admin");
-
-    totalWhiteListed = totalWhiteListed.add(_buyers.length);
+  function addToWhitelist(address[] memory _buyers) external {
+    require(whitelistAdmin[msg.sender] == true, "not admin");
 
     for (uint256 i = 0; i < _buyers.length; i++) {
-      whiteListed[_buyers[i]] = true;
+      if (!whitelisted[_buyers[i]]) {
+        whitelisted[_buyers[i]] = true;
+        totalWhiteListed = totalWhiteListed.add(1);
+      }
     }
-
-    return true;
   }
 
-  function isWhitelisted(address user) public view returns (bool) {
-    return whiteListed[user];
+  function toggleAdmin(address _admin) external onlyOwner {
+    whitelistAdmin[_admin] = !whitelistAdmin[_admin];
   }
 
-  function makeAdmin(address _admin) external onlyOwner {
-    whitelistAdder[_admin] = !whitelistAdder[_admin];
-  }
-
-  function purchaseIMMO(uint256 _amount) external returns (bool) {
-    require(whiteListed[msg.sender] == true, "Not whitelisted");
+  function purchaseIMMO(uint256 _amount) external returns (uint256) {
+    require(whitelisted[msg.sender] == true, "Not whitelisted");
     require(saleStarted() == true, "Not started");
     require(block.timestamp < endOfSale, "Sales has ended");
     require(hasBought[msg.sender] == false, "Already participated");
@@ -959,34 +937,32 @@ contract ImmortalPresale is Ownable {
 
     totalIMMObought = totalIMMObought.add(_amount);
 
-    buyers.push(msg.sender);
-
-    IERC20(mcUSD).safeTransferFrom(
+    IERC20(mcUSD).transferFrom(
       msg.sender,
       address(this),
       _amount * salePrice * decimal_mcUSD
     );
 
-    return true;
+    return _amount;
   }
 
-  function claim(address _recipient, bool _stake) public {
+  function claim(bool _stake) public {
     require(block.timestamp >= redeemTime);
     require(finalized, "only can claim after finalized");
-    require(purchasedAmounts[_recipient] > 0, "not purchased");
+    require(purchasedAmounts[msg.sender] > 0, "not purchased");
     uint256 amountAbleToRedeem = (
-      percentAbleToRedeem().mul(purchasedAmounts[_recipient])
-    ).div(10000);
-    uint256 amountRedeemed = amountAbleToRedeem.sub(amountClaimed[_recipient]);
-    stakeOrSend(_recipient, _stake, amountRedeemed * decimal_IMMO);
-    amountClaimed[_recipient] = amountClaimed[_recipient].add(amountRedeemed);
+      percentAbleToRedeem().mul(purchasedAmounts[msg.sender]).mul(decimal_IMMO)
+    ).div(completeVested);
+    uint256 amountRedeemed = amountAbleToRedeem.sub(amountClaimed[msg.sender]);
+    stakeOrSend(msg.sender, _stake, amountRedeemed);
+    amountClaimed[msg.sender] = amountClaimed[msg.sender].add(amountRedeemed);
   }
 
   function stakeOrSend(
     address _recipient,
     bool _stake,
     uint256 _amount
-  ) internal returns (uint256) {
+  ) internal {
     if (!_stake) {
       // if user does not want to stake
       IERC20(IMMO).transfer(_recipient, _amount); // send payout
@@ -995,22 +971,22 @@ contract ImmortalPresale is Ownable {
       IERC20(IMMO).approve(stakingHelper, _amount);
       IStakingHelper(stakingHelper).stake(_amount, _recipient);
     }
-    return _amount;
   }
 
   //50% unlocked at launch, other 50% linearly vested
   function percentAbleToRedeem() public view returns (uint256 percentVested) {
     uint256 timePassed = block.timestamp.sub(redeemTime);
     if (timePassed >= vestingPeriod) {
-      percentVested = 10000;
+      percentVested = completeVested;
     } else {
       percentVested = initialVested.add(
-        (timePassed.mul(5000)).div(vestingPeriod)
+        (timePassed.mul(completeVested.sub(initialVested))).div(vestingPeriod)
       );
     }
   }
 
   function withdraw() external onlyOwner {
+    require(cancelled == false, "Presale cancelled");
     uint256 mcUSDInTreasury = treasuryAllocation * decimal_mcUSD;
 
     IERC20(mcUSD).approve(treasury, mcUSDInTreasury);
@@ -1026,20 +1002,14 @@ contract ImmortalPresale is Ownable {
     finalized = true;
   }
 
-  function changeValue(
-    address _IMMO,
-    address _mcUSD,
+  function setupWithdrawal(
     address _treasury,
     address _stakingHelper,
     uint256 _treasuryAllocation
   ) external onlyOwner {
-    require(_IMMO != address(0));
-    require(_mcUSD != address(0));
     require(_treasury != address(0));
     require(_stakingHelper != address(0));
 
-    IMMO = _IMMO;
-    mcUSD = _mcUSD;
     treasury = _treasury;
     stakingHelper = _stakingHelper;
     treasuryAllocation = _treasuryAllocation;
