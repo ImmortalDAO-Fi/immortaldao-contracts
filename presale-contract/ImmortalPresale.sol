@@ -37,109 +37,6 @@ interface IERC20Mintable {
   function mint(address account_, uint256 ammount_) external;
 }
 
-interface IUniswapV2Pair {
-  event Approval(address indexed owner, address indexed spender, uint256 value);
-  event Transfer(address indexed from, address indexed to, uint256 value);
-
-  function name() external pure returns (string memory);
-
-  function symbol() external pure returns (string memory);
-
-  function decimals() external pure returns (uint8);
-
-  function totalSupply() external view returns (uint256);
-
-  function balanceOf(address owner) external view returns (uint256);
-
-  function allowance(address owner, address spender)
-    external
-    view
-    returns (uint256);
-
-  function approve(address spender, uint256 value) external returns (bool);
-
-  function transfer(address to, uint256 value) external returns (bool);
-
-  function transferFrom(
-    address from,
-    address to,
-    uint256 value
-  ) external returns (bool);
-
-  function DOMAIN_SEPARATOR() external view returns (bytes32);
-
-  function PERMIT_TYPEHASH() external pure returns (bytes32);
-
-  function nonces(address owner) external view returns (uint256);
-
-  function permit(
-    address owner,
-    address spender,
-    uint256 value,
-    uint256 deadline,
-    uint8 v,
-    bytes32 r,
-    bytes32 s
-  ) external;
-
-  event Mint(address indexed sender, uint256 amount0, uint256 amount1);
-  event Burn(
-    address indexed sender,
-    uint256 amount0,
-    uint256 amount1,
-    address indexed to
-  );
-  event Swap(
-    address indexed sender,
-    uint256 amount0In,
-    uint256 amount1In,
-    uint256 amount0Out,
-    uint256 amount1Out,
-    address indexed to
-  );
-  event Sync(uint112 reserve0, uint112 reserve1);
-
-  function MINIMUM_LIQUIDITY() external pure returns (uint256);
-
-  function factory() external view returns (address);
-
-  function token0() external view returns (address);
-
-  function token1() external view returns (address);
-
-  function getReserves()
-    external
-    view
-    returns (
-      uint112 reserve0,
-      uint112 reserve1,
-      uint32 blockTimestampLast
-    );
-
-  function price0CumulativeLast() external view returns (uint256);
-
-  function price1CumulativeLast() external view returns (uint256);
-
-  function kLast() external view returns (uint256);
-
-  function mint(address to) external returns (uint256 liquidity);
-
-  function burn(address to) external returns (uint256 amount0, uint256 amount1);
-
-  function swap(
-    uint256 amount0Out,
-    uint256 amount1Out,
-    address to,
-    bytes calldata data
-  ) external;
-
-  function skim(address to) external;
-
-  function sync() external;
-
-  function initialize(address, address) external;
-}
-
 interface IOwnable {
   function owner() external view returns (address);
 
@@ -461,279 +358,6 @@ library Address {
   }
 }
 
-abstract contract ERC20 is IERC20 {
-  using SafeMath for uint256;
-
-  // TODO comment actual hash value.
-  bytes32 private constant ERC20TOKEN_ERC1820_INTERFACE_ID =
-    keccak256("ERC20Token");
-
-  mapping(address => uint256) internal _balances;
-
-  mapping(address => mapping(address => uint256)) internal _allowances;
-
-  uint256 internal _totalSupply;
-
-  string internal _name;
-
-  string internal _symbol;
-
-  uint8 internal _decimals;
-
-  constructor(
-    string memory name_,
-    string memory symbol_,
-    uint8 decimals_
-  ) {
-    _name = name_;
-    _symbol = symbol_;
-    _decimals = decimals_;
-  }
-
-  function name() public view override returns (string memory) {
-    return _name;
-  }
-
-  function symbol() public view override returns (string memory) {
-    return _symbol;
-  }
-
-  function decimals() public view override returns (uint8) {
-    return _decimals;
-  }
-
-  function totalSupply() public view override returns (uint256) {
-    return _totalSupply;
-  }
-
-  function balanceOf(address account)
-    public
-    view
-    virtual
-    override
-    returns (uint256)
-  {
-    return _balances[account];
-  }
-
-  function transfer(address recipient, uint256 amount)
-    public
-    virtual
-    override
-    returns (bool)
-  {
-    _transfer(msg.sender, recipient, amount);
-    return true;
-  }
-
-  function allowance(address owner, address spender)
-    public
-    view
-    virtual
-    override
-    returns (uint256)
-  {
-    return _allowances[owner][spender];
-  }
-
-  function approve(address spender, uint256 amount)
-    public
-    virtual
-    override
-    returns (bool)
-  {
-    _approve(msg.sender, spender, amount);
-    return true;
-  }
-
-  function transferFrom(
-    address sender,
-    address recipient,
-    uint256 amount
-  ) public virtual override returns (bool) {
-    _transfer(sender, recipient, amount);
-    _approve(
-      sender,
-      msg.sender,
-      _allowances[sender][msg.sender].sub(
-        amount,
-        "ERC20: transfer amount exceeds allowance"
-      )
-    );
-    return true;
-  }
-
-  function increaseAllowance(address spender, uint256 addedValue)
-    public
-    virtual
-    returns (bool)
-  {
-    _approve(
-      msg.sender,
-      spender,
-      _allowances[msg.sender][spender].add(addedValue)
-    );
-    return true;
-  }
-
-  function decreaseAllowance(address spender, uint256 subtractedValue)
-    public
-    virtual
-    returns (bool)
-  {
-    _approve(
-      msg.sender,
-      spender,
-      _allowances[msg.sender][spender].sub(
-        subtractedValue,
-        "ERC20: decreased allowance below zero"
-      )
-    );
-    return true;
-  }
-
-  function _transfer(
-    address sender,
-    address recipient,
-    uint256 amount
-  ) internal virtual {
-    require(sender != address(0), "ERC20: transfer from the zero address");
-    require(recipient != address(0), "ERC20: transfer to the zero address");
-
-    _beforeTokenTransfer(sender, recipient, amount);
-
-    _balances[sender] = _balances[sender].sub(
-      amount,
-      "ERC20: transfer amount exceeds balance"
-    );
-    _balances[recipient] = _balances[recipient].add(amount);
-    emit Transfer(sender, recipient, amount);
-  }
-
-  function _mint(address account_, uint256 ammount_) internal virtual {
-    require(account_ != address(0), "ERC20: mint to the zero address");
-    _beforeTokenTransfer(address(this), account_, ammount_);
-    _totalSupply = _totalSupply.add(ammount_);
-    _balances[account_] = _balances[account_].add(ammount_);
-    emit Transfer(address(this), account_, ammount_);
-  }
-
-  function _burn(address account, uint256 amount) internal virtual {
-    require(account != address(0), "ERC20: burn from the zero address");
-
-    _beforeTokenTransfer(account, address(0), amount);
-
-    _balances[account] = _balances[account].sub(
-      amount,
-      "ERC20: burn amount exceeds balance"
-    );
-    _totalSupply = _totalSupply.sub(amount);
-    emit Transfer(account, address(0), amount);
-  }
-
-  function _approve(
-    address owner,
-    address spender,
-    uint256 amount
-  ) internal virtual {
-    require(owner != address(0), "ERC20: approve from the zero address");
-    require(spender != address(0), "ERC20: approve to the zero address");
-
-    _allowances[owner][spender] = amount;
-    emit Approval(owner, spender, amount);
-  }
-
-  function _beforeTokenTransfer(
-    address from_,
-    address to_,
-    uint256 amount_
-  ) internal virtual {}
-}
-
-interface IERC2612Permit {
-  function permit(
-    address owner,
-    address spender,
-    uint256 amount,
-    uint256 deadline,
-    uint8 v,
-    bytes32 r,
-    bytes32 s
-  ) external;
-
-  function nonces(address owner) external view returns (uint256);
-}
-
-abstract contract ERC20Permit is ERC20, IERC2612Permit {
-  using Counters for Counters.Counter;
-
-  mapping(address => Counters.Counter) private _nonces;
-
-  // keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
-  bytes32 public constant PERMIT_TYPEHASH =
-    0x6e71edae12b1b97f4d1f60370fef10105fa2faae0126114a169c64845d6126c9;
-
-  bytes32 public DOMAIN_SEPARATOR;
-
-  constructor() {
-    uint256 chainID;
-    assembly {
-      chainID := chainid()
-    }
-
-    DOMAIN_SEPARATOR = keccak256(
-      abi.encode(
-        keccak256(
-          "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-        ),
-        keccak256(bytes(name())),
-        keccak256(bytes("1")), // Version
-        chainID,
-        address(this)
-      )
-    );
-  }
-
-  function permit(
-    address owner,
-    address spender,
-    uint256 amount,
-    uint256 deadline,
-    uint8 v,
-    bytes32 r,
-    bytes32 s
-  ) public virtual override {
-    require(block.timestamp <= deadline, "Permit: expired deadline");
-
-    bytes32 hashStruct = keccak256(
-      abi.encode(
-        PERMIT_TYPEHASH,
-        owner,
-        spender,
-        amount,
-        _nonces[owner].current(),
-        deadline
-      )
-    );
-
-    bytes32 _hash = keccak256(
-      abi.encodePacked(uint16(0x1901), DOMAIN_SEPARATOR, hashStruct)
-    );
-
-    address signer = ecrecover(_hash, v, r, s);
-    require(
-      signer != address(0) && signer == owner,
-      "ZeroSwapPermit: Invalid signature"
-    );
-
-    _nonces[owner].increment();
-    _approve(owner, spender, amount);
-  }
-
-  function nonces(address owner) public view override returns (uint256) {
-    return _nonces[owner].current();
-  }
-}
 
 library SafeERC20 {
   using SafeMath for uint256;
@@ -871,34 +495,36 @@ contract ImmortalPresale is Ownable {
 
   uint256 public totalWhiteListed;
   uint256 public totalIMMObought;
-  uint256 public startOfSale = 1640174400;
-  uint256 public constant endOfSale = 1640253600;
-  uint256 public constant redeemTime = 1640260800;
-  uint256 public vestingPeriod = 1209600; //2 weeks
-  uint256 public decimal_mcUSD = 10**IERC20(mcUSD).decimals();
-  uint256 public decimal_IMMO = 10**IERC20(IMMO).decimals();
   uint256 public IMMOMinted;
+  uint256 public treasuryAllocation;
+  uint256 public salePrice;
+  uint256 public immutable startOfSale;
+  uint256 public immutable endOfSale;
+  uint256 public immutable redeemTime;
   uint256 public constant initialVested = 5000; //50%
   uint256 public constant completeVested = 10000;
-  uint256 public treasuryAllocation;
-  uint256 public salePrice = 20 * decimal_mcUSD; //20mcUSD per IMMO
+  uint256 public vestingPeriod = 1209600; //2 weeks
+  uint256 decimal_mcUSD;
+  uint256 decimal_IMMO;
 
   bool public cancelled;
   bool public finalized;
 
   mapping(address => bool) public hasBought;
   mapping(address => bool) public whitelisted;
+  mapping(address => bool) public whitelistAdmin;
 
   mapping(address => uint256) public purchasedAmounts;
   mapping(address => uint256) public amountClaimed;
-
-  mapping(address => bool) public whitelistAdmin;
 
   constructor(
     address _IMMO,
     address _mcUSD,
     address _treasury,
-    address _stakingHelper
+    address _stakingHelper,
+    uint256 _startOfSale,
+    uint256 _endOfSale,
+    uint256 _redeemTime
   ) {
     require(_IMMO != address(0));
     require(_mcUSD != address(0));
@@ -909,6 +535,14 @@ contract ImmortalPresale is Ownable {
     mcUSD = _mcUSD;
     treasury = _treasury;
     stakingHelper = _stakingHelper;
+
+    startOfSale = _startOfSale;
+    endOfSale = _endOfSale;
+    redeemTime = _redeemTime;
+
+    decimal_mcUSD = 10**(IERC20(mcUSD).decimals());
+    decimal_IMMO = 10**(IERC20(IMMO).decimals());
+    salePrice = 20 * decimal_mcUSD;
   }
 
   function saleStarted() public view returns (bool) {
@@ -934,6 +568,7 @@ contract ImmortalPresale is Ownable {
     require(whitelisted[msg.sender] == true, "Not whitelisted");
     require(saleStarted() == true, "Not started");
     require(block.timestamp < endOfSale, "Sales has ended");
+    require(cancelled == false, "Sales cancelled");
     require(hasBought[msg.sender] == false, "Already participated");
     require(_amount >= 1, "At least 1 IMMO");
     require(_amount <= 25, "Max 25 IMMO");
@@ -984,13 +619,18 @@ contract ImmortalPresale is Ownable {
 
   //50% unlocked at launch, other 50% linearly vested
   function percentAbleToRedeem() public view returns (uint256 percentVested) {
-    uint256 timePassed = block.timestamp.sub(redeemTime);
-    if (timePassed >= vestingPeriod) {
-      percentVested = completeVested;
-    } else {
-      percentVested = initialVested.add(
-        (timePassed.mul(completeVested.sub(initialVested))).div(vestingPeriod)
-      );
+    if(block.timestamp >= redeemTime){
+      uint256 timePassed = block.timestamp.sub(redeemTime);
+      if (timePassed >= vestingPeriod) {
+        percentVested = completeVested;
+      } else {
+        percentVested = initialVested.add(
+          (timePassed.mul(completeVested.sub(initialVested))).div(vestingPeriod)
+        );
+      }
+    }
+    else{
+      percentVested = 0;
     }
   }
 
@@ -1029,7 +669,6 @@ contract ImmortalPresale is Ownable {
   // Emergency use: Cancel the presale and refund
   function cancel() external onlyOwner {
     cancelled = true;
-    startOfSale = 99999999999;
   }
 
   function refund() external {
