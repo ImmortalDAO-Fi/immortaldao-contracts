@@ -829,13 +829,15 @@ contract ImmortalStaking is Ownable {
     uint256 sIMMO_amount = IERC20(sIMMO).balanceOf(msg.sender);
 
     IERC20(sIMMO).safeTransferFrom(msg.sender, address(this), sIMMO_amount);
-    IERC20(IMMO).safeTransfer(msg.sender, sIMMO_amount);
 
-    if (percentageReduced < initialPercentageBurnt) {
+    if (percentageReduced >= initialPercentageBurnt) {
+      IERC20(IMMO).safeTransfer(msg.sender, sIMMO_amount);
+    } else {
       uint256 amountBurnt = (
         (initialPercentageBurnt.sub(percentageReduced)).mul(sIMMO_amount)
       ).div(10000);
 
+      IERC20(IMMO).safeTransfer(msg.sender, sIMMO_amount - amountBurnt);
       IIMMOERC20(IMMO).burn(amountBurnt);
 
       IMMO_burnt = IMMO_burnt.add(amountBurnt);
