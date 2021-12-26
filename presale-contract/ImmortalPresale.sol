@@ -997,6 +997,7 @@ contract ImmortalPresale is Ownable {
 
   function withdraw() external onlyOwner {
     require(cancelled == false, "Presale cancelled");
+    // withdraw should only be called ONCE at the very end of the pre-sale to finalize it
     // require(finalized == false, "Presale is finalized");
     uint256 mcUSDInTreasury = treasuryAllocation * decimal_mcUSD;
 
@@ -1023,6 +1024,7 @@ contract ImmortalPresale is Ownable {
   }
 
   function balanceIMMO() public view returns (uint256) {
+    // not sure why this function is needed, you should just call the ERC20 contract directly to check balance
     return IERC20(IMMO).balanceOf(address(this));
   }
 
