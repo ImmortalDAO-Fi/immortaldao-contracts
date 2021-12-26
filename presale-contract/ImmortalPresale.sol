@@ -869,7 +869,6 @@ contract ImmortalPresale is Ownable {
   address public treasury;
   address public stakingHelper;
 
-  uint256 public salePrice = 20; //20mcUSD per IMMO
   uint256 public totalWhiteListed;
   uint256 public totalIMMObought;
   uint256 public startOfSale = 1640174400;
@@ -882,6 +881,7 @@ contract ImmortalPresale is Ownable {
   uint256 public constant initialVested = 5000; //50%
   uint256 public constant completeVested = 10000;
   uint256 public treasuryAllocation;
+  uint256 public salePrice = 20 * decimal_mcUSD; //20mcUSD per IMMO
 
   bool public cancelled;
   bool public finalized;
@@ -946,10 +946,10 @@ contract ImmortalPresale is Ownable {
 
     totalIMMObought = totalIMMObought.add(_amount);
 
-    IERC20(mcUSD).transferFrom(
+    IERC20(mcUSD).safeTransferFrom(
       msg.sender,
       address(this),
-      _amount * salePrice * decimal_mcUSD
+      _amount * salePrice
     );
 
     return _amount;
@@ -996,7 +996,11 @@ contract ImmortalPresale is Ownable {
 
   function withdraw() external onlyOwner {
     require(cancelled == false, "Presale cancelled");
+    require(finalized == false, "Presale is finalized");
+
     uint256 mcUSDInTreasury = treasuryAllocation * decimal_mcUSD;
+    uint256 bal = IERC20(mcUSD).balanceOf(address(this));
+    require(bal >= mcUSDInTreasury, "Insufficient balance");
 
     IERC20(mcUSD).approve(treasury, mcUSDInTreasury);
     IMMOMinted = ITreasury(treasury).deposit(
@@ -1005,8 +1009,8 @@ contract ImmortalPresale is Ownable {
       (treasuryAllocation - totalIMMObought) * decimal_IMMO
     );
 
-    uint256 bal = IERC20(mcUSD).balanceOf(address(this));
-    IERC20(mcUSD).transfer(msg.sender, bal);
+    bal = IERC20(mcUSD).balanceOf(address(this));
+    IERC20(mcUSD).safeTransfer(msg.sender, bal);
 
     finalized = true;
   }
@@ -1031,6 +1035,8 @@ contract ImmortalPresale is Ownable {
   function refund() external {
     require(cancelled, "Presale is not cancelled");
     uint256 amount = purchasedAmounts[msg.sender];
-    IERC20(mcUSD).transfer(msg.sender, amount * salePrice * decimal_mcUSD);
+    require(amount > 0, "Not purchased");
+    IERC20(mcUSD).safeTransfer(msg.sender, amount * salePrice);
+    purchasedAmounts[msg.sender] = 0;
   }
 }
