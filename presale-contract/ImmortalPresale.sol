@@ -894,12 +894,21 @@ contract ImmortalPresale is Ownable {
 
   mapping(address => bool) public whitelistAdmin;
 
-  constructor(address _IMMO, address _mcUSD) {
+  constructor(
+    address _IMMO,
+    address _mcUSD,
+    address _treasury,
+    address _stakingHelper
+  ) {
     require(_IMMO != address(0));
     require(_mcUSD != address(0));
+    require(_treasury != address(0));
+    require(_stakingHelper != address(0));
 
     IMMO = _IMMO;
     mcUSD = _mcUSD;
+    treasury = _treasury;
+    stakingHelper = _stakingHelper;
   }
 
   function saleStarted() public view returns (bool) {
@@ -1002,16 +1011,10 @@ contract ImmortalPresale is Ownable {
     finalized = true;
   }
 
-  function setupWithdrawal(
-    address _treasury,
-    address _stakingHelper,
-    uint256 _treasuryAllocation
-  ) external onlyOwner {
-    require(_treasury != address(0));
-    require(_stakingHelper != address(0));
-
-    treasury = _treasury;
-    stakingHelper = _stakingHelper;
+  function setTreasuryAllocation(uint256 _treasuryAllocation)
+    external
+    onlyOwner
+  {
     treasuryAllocation = _treasuryAllocation;
   }
 
