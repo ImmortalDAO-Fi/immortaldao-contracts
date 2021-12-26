@@ -609,7 +609,7 @@ contract ImmortalPresale is Ownable {
   ) internal {
     if (!_stake) {
       // if user does not want to stake
-      IERC20(IMMO).transfer(_recipient, _amount); // send payout
+      IERC20(IMMO).safeTransfer(_recipient, _amount); // send payout
     } else {
       // if user wants to stake
       IERC20(IMMO).approve(stakingHelper, _amount);
