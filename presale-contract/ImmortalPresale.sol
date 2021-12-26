@@ -946,6 +946,7 @@ contract ImmortalPresale is Ownable {
 
     totalIMMObought = totalIMMObought.add(_amount);
 
+    // this need to be safeTransferFrom
     IERC20(mcUSD).transferFrom(
       msg.sender,
       address(this),
@@ -996,6 +997,7 @@ contract ImmortalPresale is Ownable {
 
   function withdraw() external onlyOwner {
     require(cancelled == false, "Presale cancelled");
+    // require(finalized == false, "Presale is finalized");
     uint256 mcUSDInTreasury = treasuryAllocation * decimal_mcUSD;
 
     IERC20(mcUSD).approve(treasury, mcUSDInTreasury);
@@ -1005,7 +1007,9 @@ contract ImmortalPresale is Ownable {
       (treasuryAllocation - totalIMMObought) * decimal_IMMO
     );
 
+    // check this balance at the very top, before you do the approve and require(bal >= mcUSDInTreasury, "Insufficient balance")
     uint256 bal = IERC20(mcUSD).balanceOf(address(this));
+    // use safe transfer
     IERC20(mcUSD).transfer(msg.sender, bal);
 
     finalized = true;
@@ -1030,7 +1034,9 @@ contract ImmortalPresale is Ownable {
 
   function refund() external {
     require(cancelled, "Presale is not cancelled");
+    // Someone is going to call `refund()` repeatedly until the entire contract is drained
     uint256 amount = purchasedAmounts[msg.sender];
+    // use safeTransfer
     IERC20(mcUSD).transfer(msg.sender, amount * salePrice * decimal_mcUSD);
   }
 }
