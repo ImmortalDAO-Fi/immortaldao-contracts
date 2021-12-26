@@ -660,9 +660,7 @@ contract Ownable is IOwnable {
 }
 
 interface IsIMMO {
-  function rebase(uint256 ohmProfit_, uint256 epoch_)
-    external
-    returns (uint256);
+  function rebase(uint256 profit_, uint256 epoch_) external returns (uint256);
 
   function circulatingSupply() external view returns (uint256);
 
@@ -696,8 +694,9 @@ contract ImmortalStaking is Ownable {
   address public immutable sIMMO;
 
   uint256 public IMMO_burnt;
-  uint256 public initialPercentageBurnt; //10000 = 100%
+  uint256 public initialPercentageBurnt;
   uint256 public percentageReducedPerEpoch;
+  uint256 public constant maxInitialPercentageBurnt = 150; //150 = 1.5%
 
   mapping(address => uint256) public IMMO_staked;
   mapping(address => uint256) public totalValue; //sum of epoch number * IMMO_staked
@@ -752,7 +751,7 @@ contract ImmortalStaking is Ownable {
   mapping(address => Claim) public warmupInfo;
 
   /**
-        @notice stake OHM to enter warmup
+        @notice stake IMMO to enter warmup
         @param _amount uint
         @return bool
      */
@@ -781,7 +780,7 @@ contract ImmortalStaking is Ownable {
   }
 
   /**
-        @notice retrieve sOHM from warmup
+        @notice retrieve sIMMO from warmup
         @param _recipient address
      */
   function claim(address _recipient) public {
@@ -796,7 +795,7 @@ contract ImmortalStaking is Ownable {
   }
 
   /**
-        @notice forfeit sOHM in warmup and retrieve OHM
+        @notice forfeit sIMMO in warmup and retrieve IMMO
      */
   function forfeit() external {
     Claim memory info = warmupInfo[msg.sender];
@@ -817,7 +816,7 @@ contract ImmortalStaking is Ownable {
   }
 
   /**
-        @notice redeem sOHM for OHM
+        @notice redeem sIMMO for IMMO
         @param _trigger bool
      */
   function unstake(bool _trigger) external {
@@ -832,9 +831,7 @@ contract ImmortalStaking is Ownable {
     IERC20(sIMMO).safeTransferFrom(msg.sender, address(this), sIMMO_amount);
     IERC20(IMMO).safeTransfer(msg.sender, sIMMO_amount);
 
-    if (percentageReduced >= initialPercentageBurnt) {
-      IERC20(IMMO).safeTransfer(msg.sender, sIMMO_amount);
-    } else {
+    if (percentageReduced < initialPercentageBurnt) {
       uint256 amountBurnt = (
         (initialPercentageBurnt.sub(percentageReduced)).mul(sIMMO_amount)
       ).div(10000);
@@ -849,7 +846,7 @@ contract ImmortalStaking is Ownable {
   }
 
   /**
-        @notice returns the sOHM index, which tracks rebase growth
+        @notice returns the sIMMO index, which tracks rebase growth
         @return uint
      */
   function index() public view returns (uint256) {
@@ -882,7 +879,7 @@ contract ImmortalStaking is Ownable {
   }
 
   /**
-        @notice returns contract OHM holdings, including bonuses provided
+        @notice returns contract IMMO holdings, including bonuses provided
         @return uint
      */
   function contractBalance() public view returns (uint256) {
@@ -948,13 +945,25 @@ contract ImmortalStaking is Ownable {
     warmupPeriod = _warmupPeriod;
   }
 
+  /**
+   * @notice set initial percentage burnt for unstaking
+   * @param _initialPercentageBurnt uint
+   */
   function setInitialPercentageBurnt(uint256 _initialPercentageBurnt)
     external
     onlyManager
   {
+    require(
+      _initialPercentageBurnt <= maxInitialPercentageBurnt,
+      "Maximum limit exceeded"
+    );
     initialPercentageBurnt = _initialPercentageBurnt;
   }
 
+  /**
+   * @notice set percentage reduced per epoch for unstaking
+   * @param _percentageReducedPerEpoch uint
+   */
   function setPercentageReducedPerEpoch(uint256 _percentageReducedPerEpoch)
     external
     onlyManager
