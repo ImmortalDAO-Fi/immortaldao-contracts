@@ -358,7 +358,6 @@ library Address {
   }
 }
 
-
 library SafeERC20 {
   using SafeMath for uint256;
   using Address for address;
@@ -619,7 +618,7 @@ contract ImmortalPresale is Ownable {
 
   //50% unlocked at launch, other 50% linearly vested
   function percentAbleToRedeem() public view returns (uint256 percentVested) {
-    if(block.timestamp >= redeemTime){
+    if (block.timestamp >= redeemTime) {
       uint256 timePassed = block.timestamp.sub(redeemTime);
       if (timePassed >= vestingPeriod) {
         percentVested = completeVested;
@@ -628,8 +627,7 @@ contract ImmortalPresale is Ownable {
           (timePassed.mul(completeVested.sub(initialVested))).div(vestingPeriod)
         );
       }
-    }
-    else{
+    } else {
       percentVested = 0;
     }
   }
@@ -675,7 +673,7 @@ contract ImmortalPresale is Ownable {
     require(cancelled, "Presale is not cancelled");
     uint256 amount = purchasedAmounts[msg.sender];
     require(amount > 0, "Not purchased");
-    IERC20(mcUSD).safeTransfer(msg.sender, amount * salePrice);
     purchasedAmounts[msg.sender] = 0;
+    IERC20(mcUSD).safeTransfer(msg.sender, amount * salePrice);
   }
 }
