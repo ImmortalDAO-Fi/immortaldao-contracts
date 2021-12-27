@@ -598,8 +598,8 @@ contract ImmortalPresale is Ownable {
       percentAbleToRedeem().mul(purchasedAmounts[msg.sender]).mul(decimal_IMMO)
     ).div(completeVested);
     uint256 amountRedeemed = amountAbleToRedeem.sub(amountClaimed[msg.sender]);
-    stakeOrSend(msg.sender, _stake, amountRedeemed);
     amountClaimed[msg.sender] = amountClaimed[msg.sender].add(amountRedeemed);
+    stakeOrSend(msg.sender, _stake, amountRedeemed);
   }
 
   function stakeOrSend(
