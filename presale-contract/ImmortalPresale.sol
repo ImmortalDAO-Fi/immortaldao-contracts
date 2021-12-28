@@ -660,15 +660,11 @@ contract ImmortalPresale is Ownable {
     treasuryAllocation = _treasuryAllocation;
   }
 
-  function balanceIMMO() public view returns (uint256) {
+  function balanceIMMO(address recipient) public view returns (uint256) {
     return
-      (purchasedAmounts[msg.sender].mul(decimal_IMMO)).sub(
-        amountClaimed[msg.sender]
+      (purchasedAmounts[recipient].mul(decimal_IMMO)).sub(
+        amountClaimed[recipient]
       );
-  }
-
-  function isEligibleForPresale() public view returns (bool) {
-    return whitelisted[msg.sender];
   }
 
   // Emergency use: Cancel the presale and refund
