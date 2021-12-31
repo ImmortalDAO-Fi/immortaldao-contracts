@@ -661,10 +661,16 @@ contract ImmortalPresale is Ownable {
   }
 
   function balanceIMMO(address recipient) public view returns (uint256) {
-    return
-      (purchasedAmounts[recipient].mul(decimal_IMMO)).sub(
-        amountClaimed[recipient]
-      );
+    if (
+      amountClaimed[recipient] < (purchasedAmounts[recipient].mul(decimal_IMMO))
+    ) {
+      return
+        (purchasedAmounts[recipient].mul(decimal_IMMO)).sub(
+          amountClaimed[recipient]
+        );
+    } else {
+      return 0;
+    }
   }
 
   // Emergency use: Cancel the presale and refund
