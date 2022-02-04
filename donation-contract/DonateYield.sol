@@ -678,8 +678,12 @@ contract DonateYield is Ownable {
     uint256 index;
   }
 
-  mapping(address => uint256) public totalDeposited;
+  mapping(address => uint256) public totalDeposited; // Total amount of sIMMO deposited by donor currently
   mapping(address => DonationInfo[]) public donationInfo;
+
+  address[] public donors; // List of donors
+  mapping(address => uint256) public amountDonated; // Total amount of sIMMO donated by donor
+  uint256 public totalDonated; // Total amount of sIMMO donated to Impact Market
 
   constructor(address _sIMMO, address _recipient) {
     require(_sIMMO != address(0));
@@ -714,8 +718,15 @@ contract DonateYield is Ownable {
     totalDeposited[msg.sender] = 0;
     delete donationInfo[msg.sender];
 
+    if (totalRebaseYield > 0) {
+      if (amountDonated[msg.sender] == 0) {
+        donors.push(msg.sender);
+      }
+      amountDonated[msg.sender] += totalRebaseYield;
+      totalDonated += totalRebaseYield;
+      IERC20(sIMMO).safeTransfer(recipient, totalRebaseYield);
+    }
     IERC20(sIMMO).safeTransfer(msg.sender, totalDepositedByDonor);
-    IERC20(sIMMO).safeTransfer(recipient, totalRebaseYield);
   }
 
   /************************
